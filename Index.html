@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lord Battle - Player Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0b0f1a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .glass-card { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; }
+        .tab-active { color: #3b82f6; border-bottom: 2px solid #3b82f6; font-weight: 800; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; font-weight: bold; transition: 0.3s; }
+    </style>
+</head>
+<body class="pb-24">
+
+    <div class="p-4 flex justify-between items-center sticky top-0 bg-[#0b0f1a]/95 z-50 border-b border-white/5">
+        <h1 class="text-2xl font-black text-blue-500 italic tracking-tighter">LORD BATTLE</h1>
+        <div onclick="showPage('wallet')" class="bg-blue-600/10 border border-blue-500/30 px-3 py-1.5 rounded-full flex items-center gap-2 cursor-pointer">
+            <i class="fas fa-wallet text-blue-500 text-xs"></i>
+            <span id="userBalTop" class="text-sm font-bold">₹0</span>
+        </div>
+    </div>
+
+    <div id="content" class="p-4">
+        
+        <div id="page-home" class="page">
+            <div class="w-full h-44 rounded-2xl bg-slate-800/40 mb-6 overflow-hidden relative border border-white/10 shadow-2xl">
+                <img id="appBanner" src="" class="w-full h-full object-cover hidden">
+                <div id="bannerText" class="absolute inset-0 flex items-center justify-center text-slate-600 text-xs italic">Loading offers...</div>
+            </div>
+
+            <div class="flex justify-between mb-6 text-[11px] tracking-widest text-slate-500 border-b border-white/5">
+                <button onclick="switchMatchTab('upcoming')" id="tab-up" class="pb-3 px-2 tab-active">UPCOMING</button>
+                <button onclick="switchMatchTab('ongoing')" id="tab-on" class="pb-3 px-2">ONGOING</button>
+                <button onclick="switchMatchTab('result')" id="tab-res" class="pb-3 px-2">RESULTS</button>
+            </div>
+
+            <div id="matchList" class="space-y-4">
+                </div>
+        </div>
+
+        <div id="page-wallet" class="page hidden">
+            <h2 class="text-xl font-bold mb-6">Wallet Balance</h2>
+            <div class="glass-card p-10 text-center mb-6 bg-gradient-to-br from-blue-600/10 to-transparent">
+                <p class="text-slate-500 text-xs uppercase tracking-widest">Available to Play</p>
+                <h1 id="wallBalLarge" class="text-5xl font-black mt-2">₹0</h1>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="alert('Contact Admin to Deposit Money')" class="bg-green-600 py-4 rounded-2xl font-bold text-sm"><i class="fas fa-plus-circle mr-2"></i>DEPOSIT</button>
+                <button onclick="reqWithdraw()" class="bg-red-600 py-4 rounded-2xl font-bold text-sm"><i class="fas fa-money-bill-transfer mr-2"></i>WITHDRAW</button>
+            </div>
+        </div>
+
+        <div id="page-refer" class="page hidden text-center pt-10">
+            <div class="w-20 h-20 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-gift text-3xl text-blue-500"></i>
+            </div>
+            <h2 class="text-2xl font-bold">Refer & Earn</h2>
+            <p class="text-slate-400 mt-2 px-10 text-sm">Earn ₹<span id="refBonusAmt">0</span> for every friend who joins.</p>
+            <div class="mt-10 p-6 glass-card border-dashed border-blue-500/30">
+                <p class="text-[10px] text-slate-500 uppercase mb-2">Your Code</p>
+                <h3 class="text-3xl font-mono font-black text-blue-400 tracking-tighter">LORD-BATTLE-X</h3>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="fixed bottom-0 w-full p-4 flex justify-around items-center bg-[#0b0f1a]/95 backdrop-blur-md border-t border-white/5">
+        <button onclick="showPage('home')" class="nav-item text-blue-500"><i class="fas fa-gamepad text-xl"></i><span>Play</span></button>
+        <button onclick="showPage('refer')" class="nav-item text-slate-500"><i class="fas fa-share-nodes text-xl"></i><span>Refer</span></button>
+        <button onclick="showPage('wallet')" class="nav-item text-slate-500"><i class="fas fa-wallet text-xl"></i><span>Wallet</span></button>
+        <button onclick="openSupport()" class="nav-item text-slate-500"><i class="fab fa-whatsapp text-xl"></i><span>Support</span></button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCurWhNMj-z586p5SxqZSmEDZ8Zi-oGN6o",
+          databaseURL: "https://battle-de8af-default-rtdb.firebaseio.com",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 1. BANNER & SETTINGS
+        db.ref('settings').on('value', snap => {
+            const s = snap.val();
+            if(s) {
+                if(s.banner) {
+                    document.getElementById('appBanner').src = s.banner;
+                    document.getElementById('appBanner').classList.remove('hidden');
+                    document.getElementById('bannerText').classList.add('hidden');
+                }
+                document.getElementById('refBonusAmt').innerText = s.refer || '0';
+                window.adminWA = s.contact;
+            }
+        });
+
+        // 2. MATCH & RESULT LOGIC
+        function switchMatchTab(type) {
+            document.querySelectorAll('#tab-up, #tab-on, #tab-res').forEach(el => el.classList.remove('tab-active'));
+            document.getElementById('tab-' + type.substring(0,2)).classList.add('tab-active');
+            
+            db.ref('matches').on('value', snap => {
+                const list = document.getElementById('matchList');
+                list.innerHTML = '';
+                snap.forEach(child => {
+                    const m = child.val();
+                    if(m.status === type) {
+                        list.innerHTML += `
+                            <div class="glass-card overflow-hidden">
+                                <div class="p-4">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h3 class="font-bold text-sm">${m.title}</h3>
+                                        <span class="text-[10px] bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-bold tracking-tighter italic">Entry: ₹${m.entry}</span>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2 py-3 bg-black/20 rounded-xl text-center border border-white/5">
+                                        <div><p class="text-[9px] text-slate-500 uppercase">Win Prize</p><p class="text-xs font-black italic">₹${m.prize}</p></div>
+                                        <div><p class="text-[9px] text-slate-500 uppercase">Per Kill</p><p class="text-xs font-black italic">₹${m.perkill || 0}</p></div>
+                                        <div><p class="text-[9px] text-slate-500 uppercase">Map</p><p class="text-xs font-black italic">ERANGEL</p></div>
+                                    </div>
+                                    ${type === 'result' ? '<div class="mt-3 p-2 bg-green-500/10 border border-green-500/20 rounded-lg text-[10px] text-green-400 font-bold text-center italic">Match Ended - Winner: User_X (3 Kills)</div>' : ''}
+                                </div>
+                                <button class="w-full bg-blue-600 py-3 text-[11px] font-black uppercase tracking-widest active:bg-blue-700 transition">${type === 'result' ? 'Check Full Result' : 'Join Match'}</button>
+                            </div>`;
+                    }
+                });
+            });
+        }
+
+        // NAVIGATION
+        function showPage(p) {
+            document.querySelectorAll('.page').forEach(page => page.classList.add('hidden'));
+            document.getElementById('page-' + p).classList.remove('hidden');
+        }
+
+        function openSupport() {
+            if(window.adminWA) window.open('https://wa.me/' + window.adminWA);
+            else alert("Admin WhatsApp not set!");
+        }
+
+        function reqWithdraw() {
+            const amt = prompt("Enter Amount to Withdraw:");
+            if(amt) { db.ref('withdraws').push({ phone: 'User', amount: amt }); alert("Request Sent!"); }
+        }
+
+        switchMatchTab('upcoming');
+    </script>
+</body>
+</html>
