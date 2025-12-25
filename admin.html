@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lord Battle - Super Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-[#0b101b] text-white p-4 pb-20">
+
+    <h1 class="text-2xl font-black text-blue-500 mb-6 italic border-b border-white/10 pb-2">MASTER CONTROL PANEL</h1>
+
+    <div class="bg-slate-800 p-4 rounded-xl mb-6 border-l-4 border-green-500 shadow-lg">
+        <h2 class="font-bold text-green-400 mb-3"><i class="fas fa-trophy mr-2"></i> Winner Selection & Kill Prize</h2>
+        <div class="space-y-3">
+            <input id="winPhone" type="text" placeholder="Winner Phone Number" class="w-full p-2 bg-slate-900 rounded text-sm outline-none border border-white/5">
+            <div class="grid grid-cols-2 gap-2">
+                <input id="totalKills" type="number" placeholder="Total Kills" class="p-2 bg-slate-900 rounded text-sm outline-none border border-white/5">
+                <input id="killRate" type="number" placeholder="Prize Per Kill (₹)" class="p-2 bg-slate-900 rounded text-sm outline-none border border-white/5">
+            </div>
+            <input id="winBonus" type="number" placeholder="Extra Win Bonus (₹) - Optional" class="w-full p-2 bg-slate-900 rounded text-sm outline-none border border-white/5">
+            <button onclick="distributePrize()" class="w-full bg-green-600 hover:bg-green-700 py-3 rounded-lg font-black text-xs uppercase tracking-widest transition">Give Prize Money</button>
+        </div>
+    </div>
+
+    <div class="bg-slate-800 p-4 rounded-xl mb-6 border-l-4 border-yellow-500 shadow-lg">
+        <h2 class="font-bold text-yellow-500 mb-3"><i class="fas fa-wallet mr-2"></i> Wallet Management</h2>
+        <input id="uPhone" type="text" placeholder="User Phone Number" class="w-full p-2 bg-slate-900 rounded mb-2 text-sm outline-none border border-white/5">
+        <div class="flex gap-2">
+            <input id="uAmount" type="number" placeholder="Amount ₹" class="flex-1 p-2 bg-slate-900 rounded text-sm outline-none border border-white/5">
+            <button onclick="updateWallet('add')" class="bg-blue-600 px-6 py-2 rounded font-bold text-xs">ADD</button>
+            <button onclick="updateWallet('cut')" class="bg-red-600 px-6 py-2 rounded font-bold text-xs">CUT</button>
+        </div>
+    </div>
+
+    <div class="bg-slate-800 p-4 rounded-xl mb-6 border-l-4 border-blue-500 shadow-lg">
+        <h2 class="font-bold text-blue-500 mb-3"><i class="fas fa-gamepad mr-2"></i> Match Management</h2>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+            <input id="mTitle" type="text" placeholder="Match Title" class="p-2 bg-slate-900 rounded outline-none border border-white/5">
+            <select id="mStatus" class="p-2 bg-slate-900 rounded outline-none border border-white/5">
+                <option value="upcoming">Upcoming</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="result">Result/Over</option>
+            </select>
+            <input id="mEntry" type="number" placeholder="Entry Fee ₹" class="p-2 bg-slate-900 rounded outline-none border border-white/5">
+            <input id="mPrize" type="number" placeholder="Total Prize ₹" class="p-2 bg-slate-900 rounded outline-none border border-white/5">
+        </div>
+        <button onclick="publishMatch()" class="w-full bg-blue-600 py-3 mt-3 rounded-lg font-bold text-xs">PUBLISH TOURNAMENT</button>
+    </div>
+
+    <div class="bg-slate-800 p-4 rounded-xl mb-6 border-l-4 border-purple-500 shadow-lg">
+        <h2 class="font-bold text-purple-500 mb-3"><i class="fas fa-tools mr-2"></i> Global Settings</h2>
+        <div class="space-y-2 text-xs">
+            <input id="sysBanner" type="text" placeholder="Banner ImgBB Direct Link" class="w-full p-2 bg-slate-900 rounded outline-none border border-white/5">
+            <input id="sysRefer" type="number" placeholder="Referral Bonus Amount ₹" class="w-full p-2 bg-slate-900 rounded outline-none border border-white/5">
+            <input id="sysContact" type="text" placeholder="Admin WhatsApp (91XXXXXXXXXX)" class="w-full p-2 bg-slate-900 rounded outline-none border border-white/5">
+            <button onclick="saveSettings()" class="w-full bg-purple-600 py-2 mt-2 rounded font-bold">SAVE ALL SETTINGS</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCurWhNMj-z586p5SxqZSmEDZ8Zi-oGN6o",
+          databaseURL: "https://battle-de8af-default-rtdb.firebaseio.com",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- Winner Prize Distribution Logic ---
+        function distributePrize() {
+            const phone = document.getElementById('winPhone').value;
+            const kills = parseInt(document.getElementById('totalKills').value) || 0;
+            const rate = parseInt(document.getElementById('killRate').value) || 0;
+            const bonus = parseInt(document.getElementById('winBonus').value) || 0;
+
+            if(!phone) return alert("User Phone Number is required!");
+
+            const totalWinning = (kills * rate) + bonus;
+
+            if(confirm(`Send ₹${totalWinning} to ${phone}? (Kills: ${kills} × ₹${rate} + Bonus: ₹${bonus})`)) {
+                const userRef = db.ref('users/' + phone + '/balance');
+                userRef.transaction(current => (current || 0) + totalWinning);
+                alert("Prize Distributed Successfully!");
+                document.getElementById('winPhone').value = '';
+            }
+        }
+
+        // --- Wallet Control ---
+        function updateWallet(type) {
+            const phone = document.getElementById('uPhone').value;
+            const amt = parseInt(document.getElementById('uAmount').value);
+            if(!phone || !amt) return alert("Phone and Amount required!");
+            
+            const ref = db.ref('users/' + phone + '/balance');
+            ref.transaction(current => {
+                if(type === 'add') return (current || 0) + amt;
+                return (current || 0) - amt;
+            });
+            alert("Wallet " + (type === 'add' ? "Credited" : "Debited") + " Successfully!");
+        }
+
+        // --- Match Publish ---
+        function publishMatch() {
+            const data = {
+                title: document.getElementById('mTitle').value,
+                status: document.getElementById('mStatus').value,
+                entry: document.getElementById('mEntry').value,
+                prize: document.getElementById('mPrize').value,
+                timestamp: Date.now()
+            };
+            db.ref('matches').push(data);
+            alert("Match Updated on User App!");
+        }
+
+        // --- Global Settings ---
+        function saveSettings() {
+            const settings = {
+                banner: document.getElementById('sysBanner').value,
+                refer: document.getElementById('sysRefer').value,
+                contact: document.getElementById('sysContact').value
+            };
+            db.ref('settings').set(settings);
+            alert("Global Settings Saved!");
+        }
+    </script>
+</body>
+</html>
